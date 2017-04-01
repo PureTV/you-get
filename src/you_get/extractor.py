@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-from .common import match1, download_urls, get_filename, parse_host, set_proxy, unset_proxy
+from .common import match1, maybe_print, download_urls, get_filename, parse_host, set_proxy, unset_proxy
+from .common import print_more_compatible as print
 from .util import log
 from . import json_output
 import os
@@ -33,6 +34,7 @@ class VideoExtractor():
 
     def download_by_url(self, url, **kwargs):
         self.url = url
+        self.vid = None
 
         if 'extractor_proxy' in kwargs and kwargs['extractor_proxy']:
             set_proxy(parse_host(kwargs['extractor_proxy']))
@@ -50,6 +52,7 @@ class VideoExtractor():
         self.download(**kwargs)
 
     def download_by_vid(self, vid, **kwargs):
+        self.url = None
         self.vid = vid
 
         if 'extractor_proxy' in kwargs and kwargs['extractor_proxy']:
@@ -90,12 +93,12 @@ class VideoExtractor():
             print("      container:     %s" % stream['container'])
 
         if 'video_profile' in stream:
-            print("      video-profile: %s" % stream['video_profile'])
+            maybe_print("      video-profile: %s" % stream['video_profile'])
 
         if 'quality' in stream:
             print("      quality:       %s" % stream['quality'])
 
-        if 'size' in stream:
+        if 'size' in stream and stream['container'].lower() != 'm3u8':
             print("      size:          %s MiB (%s bytes)" % (round(stream['size'] / 1048576, 1), stream['size']))
 
         if 'itag' in stream:
@@ -111,14 +114,14 @@ class VideoExtractor():
         else:
             stream = self.dash_streams[stream_id]
 
-        print("    - title:         %s" % self.title)
+        maybe_print("    - title:         %s" % self.title)
         print("       size:         %s MiB (%s bytes)" % (round(stream['size'] / 1048576, 1), stream['size']))
         print("        url:         %s" % self.url)
         print()
 
     def p(self, stream_id=None):
-        print("site:                %s" % self.__class__.name)
-        print("title:               %s" % self.title)
+        maybe_print("site:                %s" % self.__class__.name)
+        maybe_print("title:               %s" % self.title)
         if stream_id:
             # Print the stream
             print("stream:")
@@ -151,7 +154,7 @@ class VideoExtractor():
                 print("      download-url:  {}\n".format(i['url']))
 
     def p_playlist(self, stream_id=None):
-        print("site:                %s" % self.__class__.name)
+        maybe_print("site:                %s" % self.__class__.name)
         print("playlist:            %s" % self.title)
         print("videos:")
 
@@ -203,6 +206,9 @@ class VideoExtractor():
                           output_dir=kwargs['output_dir'],
                           merge=kwargs['merge'],
                           av=stream_id in self.dash_streams)
+            if 'caption' not in kwargs or not kwargs['caption']:
+                print('Skipping captions.')
+                return
             for lang in self.caption_tracks:
                 filename = '%s.%s.srt' % (get_filename(self.title), lang)
                 print('Saving %s ... ' % filename, end="", flush=True)

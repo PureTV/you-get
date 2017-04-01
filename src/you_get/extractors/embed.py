@@ -2,11 +2,14 @@ __all__ = ['embed_download']
 
 from ..common import *
 
+from .bilibili import bilibili_download
 from .iqiyi import iqiyi_download_by_vid
-from .letv import letvcloud_download_by_vu
+from .le import letvcloud_download_by_vu
+from .netease import netease_download
 from .qq import qq_download_by_vid
 from .sina import sina_download_by_vid
 from .tudou import tudou_download_by_id
+from .vimeo import vimeo_download_by_id
 from .yinyuetai import yinyuetai_download_by_id
 from .youku import youku_download_by_vid
 
@@ -23,7 +26,7 @@ youku_embed_patterns = [ 'youku\.com/v_show/id_([a-zA-Z0-9=]+)',
 """
 http://www.tudou.com/programs/view/html5embed.action?type=0&amp;code=3LS_URGvl54&amp;lcode=&amp;resourceId=0_06_05_99
 """
-tudou_embed_patterns = [ 'tudou\.com[a-zA-Z0-9\/\?=\&\.\;]+code=([a-zA-Z0-9_]+)\&',
+tudou_embed_patterns = [ 'tudou\.com[a-zA-Z0-9\/\?=\&\.\;]+code=([a-zA-Z0-9_-]+)\&',
                          'www\.tudou\.com/v/([a-zA-Z0-9_-]+)/[^"]*v\.swf'
                        ]
 
@@ -36,10 +39,21 @@ yinyuetai_embed_patterns = [ 'player\.yinyuetai\.com/video/swf/(\d+)' ]
 
 iqiyi_embed_patterns = [ 'player\.video\.qiyi\.com/([^/]+)/[^/]+/[^/]+/[^/]+\.swf[^"]+tvId=(\d+)' ]
 
+netease_embed_patterns = [ '(http://\w+\.163\.com/movie/[^\'"]+)' ]
+
+vimeo_embed_patters = [ 'player\.vimeo\.com/video/(\d+)' ]
+
+"""
+check the share button on http://www.bilibili.com/video/av5079467/
+"""
+bilibili_embed_patterns = [ 'static\.hdslb\.com/miniloader\.swf.*aid=(\d+)' ]
+
+
 def embed_download(url, output_dir = '.', merge = True, info_only = False ,**kwargs):
-    content = get_content(url)
+    content = get_content(url, headers=fake_headers)
     found = False
     title = match1(content, '<title>([^<>]+)</title>')
+
     vids = matchall(content, youku_embed_patterns)
     for vid in set(vids):
         found = True
@@ -59,6 +73,22 @@ def embed_download(url, output_dir = '.', merge = True, info_only = False ,**kwa
     for vid in vids:
         found = True
         iqiyi_download_by_vid((vid[1], vid[0]), title=title, output_dir=output_dir, merge=merge, info_only=info_only)
+
+    urls = matchall(content, netease_embed_patterns)
+    for url in urls:
+        found = True
+        netease_download(url, title=title, output_dir=output_dir, merge=merge, info_only=info_only)
+
+    urls = matchall(content, vimeo_embed_patters)
+    for url in urls:
+        found = True
+        vimeo_download_by_id(url, title=title, output_dir=output_dir, merge=merge, info_only=info_only)
+
+    aids = matchall(content, bilibili_embed_patterns)
+    for aid in aids:
+        found = True
+        url = 'http://www.bilibili.com/video/av%s/' % aid
+        bilibili_download(url, output_dir=output_dir, merge=merge, info_only=info_only)
 
     if not found:
         raise NotImplementedError(url)
